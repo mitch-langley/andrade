@@ -4,20 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Restauración Fotográfica · Antes y Después</title>
-  <script
-  defer
-  crossorigin="anonymous"
-  src="https://clerk.andrade.mitchlangley.cl/npm/@clerk/ui@1/dist/ui.browser.js"
-  type="text/javascript">
-</script>
-
-<script
-  defer
-  crossorigin="anonymous"
-  data-clerk-publishable-key="pk_live_Y2xlcmsuYW5kcmFkZS5taXRjaGxhbmdsZXkuY2wk"
-  src="https://clerk.andrade.mitchlangley.cl/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
-  type="text/javascript">
-</script>
 
   <style>
     * {
@@ -55,50 +41,70 @@
       display: none !important;
     }
 
-    .account-nav,
-    .account-actions {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      flex-wrap: wrap;
-      gap: 10px;
+    .login {
+      min-height: calc(100vh - 140px);
+      display: grid;
+      place-items: center;
     }
 
-    .account-nav {
-      min-height: 40px;
-      margin-bottom: 28px;
+    .login-box {
+      width: min(380px, 100%);
+      padding: 32px 28px;
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
     }
 
-    .account-button {
-      padding: 10px 15px;
+    .login-box h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+
+    .login-box label {
+      display: block;
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .login-box input {
+      width: 100%;
+      margin: 0 0 12px;
+      padding: 11px 12px;
       border: 1px solid #ccc;
       border-radius: var(--radius);
-      background: var(--card-bg);
-      color: var(--text);
       font: inherit;
-      font-size: 14px;
+      font-size: 16px;
+    }
+
+    .login-box button {
+      width: 100%;
+      padding: 11px 15px;
+      border: 1px solid var(--text);
+      border-radius: var(--radius);
+      background: var(--text);
+      color: #fff;
+      font: inherit;
+      font-size: 15px;
       cursor: pointer;
     }
 
-    .account-button-primary {
-      background: var(--text);
-      border-color: var(--text);
-      color: #fff;
-    }
-
-    .account-button:focus-visible {
+    .login-box input:focus-visible,
+    .login-box button:focus-visible {
       outline: 2px solid var(--text);
-      outline-offset: 3px;
+      outline-offset: 2px;
     }
 
-    .account-button:disabled {
+    .login-box button:disabled {
       opacity: 0.5;
       cursor: wait;
     }
 
-    .account-status {
-      margin: 0;
-      color: var(--muted);
+    .login-error {
+      min-height: 1.4em;
+      margin: 12px 0 0;
+      color: #b3261e;
       font-size: 13px;
     }
 
@@ -376,13 +382,15 @@
 
   <main class="page">
 
-    <nav class="account-nav" aria-label="Mi cuenta">
-      <p id="account-status" class="account-status" role="status">Cargando acceso...</p>
-      <button id="account-signin" class="account-button account-button-primary" type="button" hidden>Iniciar sesión</button>
-      <div id="user-button" hidden></div>
-      <button id="auth-retry" class="account-button" type="button" hidden>Reintentar</button>
-    </nav>
-    <noscript><p class="account-status">Activa JavaScript para iniciar sesión o crear una cuenta.</p></noscript>
+    <section id="login" class="login" hidden>
+      <form id="login-form" class="login-box">
+        <h1>Restauración fotográfica</h1>
+        <label for="password">Ingrese la contraseña para acceder a la página.</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Entrar</button>
+        <p id="login-error" class="login-error" role="alert"></p>
+      </form>
+    </section>
 
     <div id="gallery-content" hidden>
     <header>
@@ -664,64 +672,53 @@
   </script>
 
   <script type="module">
-    const statusEl = document.getElementById("account-status");
-    const signInBtn = document.getElementById("account-signin");
-    const userButtonEl = document.getElementById("user-button");
-    const retryBtn = document.getElementById("auth-retry");
-    const galleryEl = document.getElementById("gallery-content");
+    const login = document.getElementById("login");
+    const form = document.getElementById("login-form");
+    const input = document.getElementById("password");
+    const error = document.getElementById("login-error");
+    const button = form.querySelector("button");
+    const gallery = document.getElementById("gallery-content");
 
-    let userButtonMounted = false;
-
-    function showLoggedIn() {
-      statusEl.hidden = true;
-      signInBtn.hidden = true;
-      retryBtn.hidden = true;
-      userButtonEl.hidden = false;
-      galleryEl.hidden = false;
-
-      if (!userButtonMounted) {
-        Clerk.mountUserButton(userButtonEl);
-        userButtonMounted = true;
-      }
+    function showGallery() {
+      login.hidden = true;
+      gallery.hidden = false;
+      gallery.querySelectorAll("img[data-src]").forEach(img => { img.src = img.dataset.src; });
+      window.dispatchEvent(new Event("resize"));
     }
 
-    function showLoggedOut() {
-      statusEl.hidden = true;
-      retryBtn.hidden = true;
-      userButtonEl.hidden = true;
-      galleryEl.hidden = true;
-      signInBtn.hidden = false;
+    function showLogin() {
+      login.hidden = false;
+      input.focus();
     }
 
-    function renderAuthState() {
-      if (Clerk.user) {
-        showLoggedIn();
-      } else {
-        showLoggedOut();
-      }
-    }
-
-    async function initAuth() {
-      statusEl.hidden = false;
-      statusEl.textContent = "Cargando acceso...";
-      signInBtn.hidden = true;
-      retryBtn.hidden = true;
-
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      button.disabled = true;
+      error.textContent = "";
       try {
-        await Clerk.load();
-        renderAuthState();
-        Clerk.addListener(renderAuthState);
-      } catch (error) {
-        console.error("Error al cargar Clerk:", error);
-        statusEl.textContent = "No se pudo verificar tu acceso.";
-        retryBtn.hidden = false;
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: input.value }),
+        });
+        if (response.status === 204) return showGallery();
+        error.textContent = response.status === 401
+          ? "Contraseña incorrecta."
+          : "No se pudo verificar el acceso. Vuelve a intentarlo.";
+        input.select();
+      } catch {
+        error.textContent = "No se pudo conectar. Revisa tu conexión.";
+      } finally {
+        button.disabled = false;
       }
+    });
+
+    try {
+      const response = await fetch("/api/session", { cache: "no-store" });
+      response.status === 204 ? showGallery() : showLogin();
+    } catch {
+      showLogin();
     }
-
-    signInBtn.addEventListener("click", () => Clerk.openSignIn());
-    retryBtn.addEventListener("click", initAuth);
-
-    document.addEventListener("DOMContentLoaded", initAuth);
   </script>
 
 </body>

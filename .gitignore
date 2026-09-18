@@ -2,7 +2,6 @@
 .env.*
 !.env.example
 node_modules/
-.clerk/
 .dev.vars*
 .wrangler/
 dist/

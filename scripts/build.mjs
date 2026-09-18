@@ -9,6 +9,7 @@ if (path.dirname(output) !== path.resolve(root) || path.basename(output) !== 'di
 }
 await rm(output, { recursive: true, force: true });
 await mkdir(path.join(output, 'assets'), { recursive: true });
+await copyFile(path.join(root, 'index.html'), path.join(output, 'index.html'));
 for (const entry of await readdir(path.join(root, 'assets'), { withFileTypes: true })) {
   if (entry.isFile() && entry.name.endsWith('.webp')) {
     await copyFile(path.join(root, 'assets', entry.name), path.join(output, 'assets', entry.name));
