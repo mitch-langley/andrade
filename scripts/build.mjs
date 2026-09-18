@@ -9,9 +9,6 @@ if (path.dirname(output) !== path.resolve(root) || path.basename(output) !== 'di
 }
 await rm(output, { recursive: true, force: true });
 await mkdir(path.join(output, 'assets'), { recursive: true });
-for (const file of ['index.html', 'auth.js', 'clerk-client.js', 'sign-in.html', 'sign-in.js']) {
-  await copyFile(path.join(root, file), path.join(output, file));
-}
 for (const entry of await readdir(path.join(root, 'assets'), { withFileTypes: true })) {
   if (entry.isFile() && entry.name.endsWith('.webp')) {
     await copyFile(path.join(root, 'assets', entry.name), path.join(output, 'assets', entry.name));
