@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Restauración Fotográfica · Antes y Después</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --page-bg: #f2f2f0;
+      --text: #222;
+      --muted: #6f6f6b;
+      --card-bg: #fff;
+      --shadow: 0 10px 35px rgba(0, 0, 0, 0.10);
+      --radius: 8px;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page-bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .page {
+      width: min(1200px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 60px 0 80px;
+    }
+
+    header {
+      margin-bottom: 40px;
+      max-width: 700px;
+    }
+
+    header h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /*
+      Dos comparadores por fila en desktop,
+      uno por fila en pantallas pequeñas.
+    */
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 32px 26px;
+    }
+
+    .photo-pair {
+      min-width: 0;
+    }
+
+    .photo-title {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #555;
+    }
+
+    .comparison {
+      --position: 50%;
+
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+
+      /*
+        Cambia esto si tus fotografías tienen
+        otra proporción predominante.
+      */
+      aspect-ratio: 4 / 3;
+
+      background: #151515;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+
+      user-select: none;
+      touch-action: pan-y;
+    }
+
+    /*
+      Ambas imágenes ocupan exactamente
+      el mismo espacio.
+    */
+    .comparison img {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+
+      /*
+        contain evita cortar fotos históricas.
+        Si quieres llenar totalmente el marco,
+        cambia contain por cover.
+      */
+      object-fit: contain;
+      object-position: center;
+      pointer-events: none;
+    }
+
+    /*
+      DESPUÉS queda al fondo.
+    */
+    .comparison .after {
+      z-index: 1;
+    }
+
+    /*
+      ANTES se recorta progresivamente
+      desde la izquierda.
+    */
+    .before-wrapper {
+      position: absolute;
+      inset: 0;
+      width: var(--position);
+      overflow: hidden;
+      z-index: 2;
+    }
+
+    /*
+      Muy importante:
+      la imagen dentro del wrapper debe
+      conservar el ancho del comparador completo.
+    */
+    .before-wrapper .before {
+      max-width: none;
+    }
+
+    /*
+      Línea vertical divisoria.
+    */
+    .comparison-divider {
+      position: absolute;
+      z-index: 4;
+      top: 0;
+      bottom: 0;
+      left: var(--position);
+
+      width: 2px;
+
+      transform: translateX(-50%);
+
+      background: rgba(255, 255, 255, 0.95);
+
+      box-shadow:
+        0 0 2px rgba(0, 0, 0, 0.4),
+        0 0 8px rgba(0, 0, 0, 0.15);
+
+      pointer-events: none;
+    }
+
+    /*
+      Botón circular.
+    */
+    .comparison-handle {
+      position: absolute;
+      z-index: 5;
+
+      left: var(--position);
+      top: 50%;
+
+      width: 46px;
+      height: 46px;
+
+      transform: translate(-50%, -50%);
+
+      border-radius: 50%;
+
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(0, 0, 0, 0.22);
+
+      box-shadow:
+        0 3px 12px rgba(0, 0, 0, 0.30);
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+
+      pointer-events: none;
+    }
+
+    .comparison-handle::before,
+    .comparison-handle::after {
+      content: "";
+      width: 0;
+      height: 0;
+
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+    }
+
+    .comparison-handle::before {
+      border-right: 8px solid #333;
+    }
+
+    .comparison-handle::after {
+      border-left: 8px solid #333;
+    }
+
+    /*
+      Etiquetas.
+    */
+    .comparison-label {
+      position: absolute;
+      z-index: 6;
+      top: 14px;
+
+      padding: 6px 10px;
+
+      border-radius: 4px;
+
+      background: rgba(0, 0, 0, 0.56);
+      color: #fff;
+
+      font-size: 10px;
+      font-weight: 700;
+
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+
+      pointer-events: none;
+
+      backdrop-filter: blur(4px);
+    }
+
+    .before-label {
+      left: 14px;
+    }
+
+    .after-label {
+      right: 14px;
+    }
+
+    /*
+      Range invisible encima de todo.
+      Esto permite mouse, touch y teclado.
+    */
+    .comparison-slider {
+      position: absolute;
+      z-index: 10;
+
+      inset: 0;
+
+      width: 100%;
+      height: 100%;
+
+      margin: 0;
+
+      opacity: 0;
+      cursor: ew-resize;
+    }
+
+    .comparison:focus-within .comparison-handle {
+      outline: 3px solid rgba(255, 255, 255, 0.6);
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        width: min(100% - 24px, 620px);
+        padding-top: 35px;
+      }
+
+      .gallery {
+        grid-template-columns: 1fr;
+        gap: 30px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .comparison-handle {
+        width: 42px;
+        height: 42px;
+      }
+
+      .comparison-label {
+        top: 10px;
+      }
+
+      .before-label {
+        left: 10px;
+      }
+
+      .after-label {
+        right: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="page">
+
+    <header>
+      <h1>Restauración fotográfica</h1>
+      <p>
+        Desliza el control de cada fotografía para comparar
+        el original con su versión restaurada.
+      </p>
+    </header>
+
+
+    <section class="gallery">
+
+
+      <!-- ==============================
+           FOTO 01
+      =============================== -->
+
+      <article class="photo-pair">
+
+        <h2 class="photo-title">Fotografía 01</h2>
+
+        <div class="comparison">
+
+          <img
+            class="after"
+            src="assets/lucy_1b.webp"
+            alt="Fotografía 01 restaurada"
+          >
+
+          <div class="before-wrapper">
+            <img
+              class="before"
+              src="assets/lucy_1a.webp"
+              alt="Fotografía 01 original"
+            >
+          </div>
+
+          <span class="comparison-label before-label">
+            Antes
+          </span>
+
+          <span class="comparison-label after-label">
+            Después
+          </span>
+
+          <div class="comparison-divider"></div>
+          <div class="comparison-handle"></div>
+
+          <input
+            class="comparison-slider"
+            type="range"
+            min="0"
+            max="100"
+            value="50"
+            aria-label="Comparar fotografía 01 antes y después"
+          >
+
+        </div>
+
+      </article>
+
+
+      <!-- ==============================
+           FOTO 02
+      =============================== -->
+
+      <article class="photo-pair">
+
+        <h2 class="photo-title">Fotografía 02</h2>
+
+        <div class="comparison">
+
+          <img
+            class="after"
+            src="assets/lucy_2b.webp"
+            alt="Fotografía 02 restaurada"
+          >
+
+          <div class="before-wrapper">
+            <img
+              class="before"
+              src="assets/lucy_2a.webp"
+              alt="Fotografía 02 original"
+            >
+          </div>
+
+          <span class="comparison-label before-label">
+            Antes
+          </span>
+
+          <span class="comparison-label after-label">
+            Después
+          </span>
+
+          <div class="comparison-divider"></div>
+          <div class="comparison-handle"></div>
+
+          <input
+            class="comparison-slider"
+            type="range"
+            min="0"
+            max="100"
+            value="50"
+            aria-label="Comparar fotografía 02 antes y después"
+          >
+
+        </div>
+
+      </article>
+
+
+      <!-- ==============================
+           FOTO 03
+      =============================== -->
+
+      <article class="photo-pair">
+
+        <h2 class="photo-title">Fotografía 03</h2>
+
+        <div class="comparison">
+
+          <img
+            class="after"
+            src="assets/lucy_3b.webp"
+            alt="Fotografía 03 restaurada"
+          >
+
+          <div class="before-wrapper">
+            <img
+              class="before"
+              src="assets/lucy_3a.webp"
+              alt="Fotografía 03 original"
+            >
+          </div>
+
+          <span class="comparison-label before-label">
+            Antes
+          </span>
+
+          <span class="comparison-label after-label">
+            Después
+          </span>
+
+          <div class="comparison-divider"></div>
+          <div class="comparison-handle"></div>
+
+          <input
+            class="comparison-slider"
+            type="range"
+            min="0"
+            max="100"
+            value="50"
+            aria-label="Comparar fotografía 03 antes y después"
+          >
+
+        </div>
+
+      </article>
+
+
+      <!-- ==============================
+           FOTO 04
+      =============================== -->
+
+      <article class="photo-pair">
+
+        <h2 class="photo-title">Fotografía 04</h2>
+
+        <div class="comparison">
+
+          <img
+            class="after"
+            src="assets/papa_1b.webp"
+            alt="Fotografía 04 restaurada"
+          >
+
+          <div class="before-wrapper">
+            <img
+              class="before"
+              src="assets/papa_1a.webp"
+              alt="Fotografía 04 original"
+            >
+          </div>
+
+          <span class="comparison-label before-label">
+            Antes
+          </span>
+
+          <span class="comparison-label after-label">
+            Después
+          </span>
+
+          <div class="comparison-divider"></div>
+          <div class="comparison-handle"></div>
+
+          <input
+            class="comparison-slider"
+            type="range"
+            min="0"
+            max="100"
+            value="50"
+            aria-label="Comparar fotografía 04 antes y después"
+          >
+
+        </div>
+
+      </article>
+
+
+     
+
+
+    </section>
+
+  </main>
+
+
+  <script>
+    document.querySelectorAll(".comparison").forEach(comparison => {
+
+      const slider =
+        comparison.querySelector(".comparison-slider");
+
+      const beforeImage =
+        comparison.querySelector(".before");
+
+      function updateComparison() {
+
+        /*
+          Mueve línea, botón y borde del recorte.
+        */
+        comparison.style.setProperty(
+          "--position",
+          `${slider.value}%`
+        );
+
+        /*
+          La imagen BEFORE debe conservar siempre
+          el ancho completo del comparador.
+
+          Así ambas fotografías permanecen perfectamente
+          alineadas aunque el contenedor before-wrapper
+          se haga más pequeño.
+        */
+        beforeImage.style.width =
+          `${comparison.clientWidth}px`;
+
+        beforeImage.style.height =
+          `${comparison.clientHeight}px`;
+      }
+
+      slider.addEventListener(
+        "input",
+        updateComparison
+      );
+
+      window.addEventListener(
+        "resize",
+        updateComparison
+      );
+
+      /*
+        También recalcula cuando las imágenes cargan.
+      */
+      comparison
+        .querySelectorAll("img")
+        .forEach(img => {
+          img.addEventListener(
+            "load",
+            updateComparison
+          );
+        });
+
+      updateComparison();
+
+    });
+  </script>
+
+</body>
+</html>
